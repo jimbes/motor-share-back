@@ -43,7 +43,13 @@ return new class extends Migration
             $table->longText('exception');
             $table->timestamp('failed_at')->useCurrent();
 
-            $table->index(['connection', 'queue', 'failed_at']);
+            // Not a composite index on (connection, queue, failed_at): on
+            // hosts limited to a 1000-byte max key length (e.g. MyISAM
+            // default engine), two varchar(191) utf8mb4 columns alone
+            // already exceed that. This table is small in practice, so a
+            // single index on failed_at (for cleanup/listing by recency)
+            // is enough.
+            $table->index('failed_at');
         });
     }
 
