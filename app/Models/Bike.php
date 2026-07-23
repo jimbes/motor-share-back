@@ -9,13 +9,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['brand', 'model', 'year', 'nickname', 'engine_cc', 'photo_path', 'is_default'])]
+#[Fillable(['brand', 'model', 'year', 'nickname', 'engine_cc', 'is_default'])]
 class Bike extends Model
 {
     /** @use HasFactory<BikeFactory> */
     use HasFactory;
+
+    protected $appends = ['photo_url'];
 
     protected function casts(): array
     {
@@ -34,10 +35,19 @@ class Bike extends Model
         return $this->hasMany(Ride::class);
     }
 
+    public function photos(): HasMany
+    {
+        return $this->hasMany(BikePhoto::class)->oldest();
+    }
+
+    /**
+     * The cover photo shown in thumbnails and on the profile banner - the
+     * first photo added to the gallery, or null if there are none.
+     */
     protected function photoUrl(): Attribute
     {
         return Attribute::get(
-            fn () => $this->photo_path ? Storage::disk('public')->url($this->photo_path) : null
+            fn () => $this->photos->first()?->url
         );
     }
 }

@@ -15,7 +15,7 @@ class BikeController extends Controller
     public function index(Request $request)
     {
         return BikeResource::collection(
-            $request->user()->bikes()->latest()->get()
+            $request->user()->bikes()->with('photos')->latest()->get()
         );
     }
 
@@ -33,7 +33,7 @@ class BikeController extends Controller
             $bike->update(['is_default' => true]);
         }
 
-        return new BikeResource($bike);
+        return new BikeResource($bike->load('photos'));
     }
 
     /**
@@ -41,7 +41,7 @@ class BikeController extends Controller
      */
     public function show(Request $request, string $id)
     {
-        $bike = $request->user()->bikes()->findOrFail($id);
+        $bike = $request->user()->bikes()->with('photos')->findOrFail($id);
 
         return new BikeResource($bike);
     }
@@ -54,7 +54,7 @@ class BikeController extends Controller
         $bike = $request->user()->bikes()->findOrFail($id);
         $bike->update($request->validated());
 
-        return new BikeResource($bike);
+        return new BikeResource($bike->load('photos'));
     }
 
     /**
@@ -85,13 +85,13 @@ class BikeController extends Controller
         $request->user()->bikes()->where('id', '!=', $bike->id)->update(['is_default' => false]);
         $bike->update(['is_default' => true]);
 
-        return new BikeResource($bike);
+        return new BikeResource($bike->load('photos'));
     }
 
     /**
-     * Replace a bike's photo, deleting the previous one if there was one.
+     * Add a photo to a bike's gallery.
      */
-    public function updatePhoto(Request $request, string $id)
+    public function addPhoto(Request $request, string $id)
     {
         $bike = $request->user()->bikes()->findOrFail($id);
 
@@ -99,15 +99,23 @@ class BikeController extends Controller
             'photo' => ['required', 'image', 'max:10240'],
         ]);
 
-        $oldPath = $bike->photo_path;
-
         $path = $request->file('photo')->store('bike-photos', 'public');
-        $bike->update(['photo_path' => $path]);
+        $bike->photos()->create(['path' => $path]);
 
-        if ($oldPath) {
-            Storage::disk('public')->delete($oldPath);
-        }
+        return new BikeResource($bike->load('photos'));
+    }
 
-        return new BikeResource($bike);
+    /**
+     * Remove a photo from a bike's gallery.
+     */
+    public function removePhoto(Request $request, string $id, string $photoId)
+    {
+        $bike = $request->user()->bikes()->findOrFail($id);
+        $photo = $bike->photos()->findOrFail($photoId);
+
+        Storage::disk('public')->delete($photo->path);
+        $photo->delete();
+
+        return new BikeResource($bike->load('photos'));
     }
 }

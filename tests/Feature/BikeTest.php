@@ -92,52 +92,93 @@ class BikeTest extends TestCase
         $this->assertDatabaseHas('bikes', ['id' => $bike->id]);
     }
 
-    public function test_a_user_can_attach_a_photo_to_their_own_bike(): void
+    public function test_a_user_can_add_a_photo_to_their_own_bike(): void
     {
         Storage::fake('public');
         $user = User::factory()->create();
         $bike = Bike::factory()->for($user)->create();
 
-        $response = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photo", [
+        $response = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photos", [
             'photo' => UploadedFile::fake()->image('bike.jpg'),
         ]);
 
         $response->assertOk();
         $this->assertNotNull($response->json('photo_url'));
-        Storage::disk('public')->assertExists($bike->fresh()->photo_path);
+        $this->assertCount(1, $response->json('photos'));
+        Storage::disk('public')->assertExists($bike->fresh()->photos->first()->path);
     }
 
-    public function test_replacing_a_bike_photo_deletes_the_old_one(): void
+    public function test_a_bike_can_have_multiple_photos(): void
     {
         Storage::fake('public');
         $user = User::factory()->create();
         $bike = Bike::factory()->for($user)->create();
 
-        $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photo", [
-            'photo' => UploadedFile::fake()->image('first.jpg'),
-        ]);
-        $firstPath = $bike->fresh()->photo_path;
+        $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photos", ['photo' => UploadedFile::fake()->image('one.jpg')]);
+        $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photos", ['photo' => UploadedFile::fake()->image('two.jpg')]);
+        $response = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photos", ['photo' => UploadedFile::fake()->image('three.jpg')]);
 
-        $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photo", [
-            'photo' => UploadedFile::fake()->image('second.jpg'),
-        ]);
-
-        Storage::disk('public')->assertMissing($firstPath);
-        Storage::disk('public')->assertExists($bike->fresh()->photo_path);
+        $response->assertOk();
+        $this->assertCount(3, $response->json('photos'));
+        $this->assertSame(3, $bike->fresh()->photos()->count());
     }
 
-    public function test_a_user_cannot_attach_a_photo_to_another_users_bike(): void
+    public function test_the_cover_photo_is_the_first_one_added(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $bike = Bike::factory()->for($user)->create();
+
+        $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photos", ['photo' => UploadedFile::fake()->image('first.jpg')]);
+        $firstUrl = $bike->fresh()->photo_url;
+
+        $response = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photos", ['photo' => UploadedFile::fake()->image('second.jpg')]);
+
+        $this->assertSame($firstUrl, $response->json('photo_url'));
+    }
+
+    public function test_a_user_can_remove_a_bike_photo(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $bike = Bike::factory()->for($user)->create();
+        $add = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photos", ['photo' => UploadedFile::fake()->image('bike.jpg')]);
+        $photoId = $add->json('photos.0.id');
+        $path = $bike->fresh()->photos->first()->path;
+
+        $response = $this->actingAs($user)->deleteJson("/api/bikes/{$bike->id}/photos/{$photoId}");
+
+        $response->assertOk()->assertJsonCount(0, 'photos');
+        $this->assertDatabaseMissing('bike_photos', ['id' => $photoId]);
+        Storage::disk('public')->assertMissing($path);
+    }
+
+    public function test_a_user_cannot_add_a_photo_to_another_users_bike(): void
     {
         Storage::fake('public');
         $user = User::factory()->create();
         $other = User::factory()->create();
         $bike = Bike::factory()->for($other)->create();
 
-        $response = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photo", [
+        $response = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photos", [
             'photo' => UploadedFile::fake()->image('bike.jpg'),
         ]);
 
         $response->assertNotFound();
+    }
+
+    public function test_a_user_cannot_remove_a_photo_from_another_users_bike(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $bike = Bike::factory()->for($other)->create();
+        $photo = $bike->photos()->create(['path' => 'bike-photos/example.jpg']);
+
+        $response = $this->actingAs($user)->deleteJson("/api/bikes/{$bike->id}/photos/{$photo->id}");
+
+        $response->assertNotFound();
+        $this->assertDatabaseHas('bike_photos', ['id' => $photo->id]);
     }
 
     public function test_a_riders_first_bike_becomes_their_default(): void

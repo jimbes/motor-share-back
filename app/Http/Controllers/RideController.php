@@ -23,7 +23,7 @@ class RideController extends Controller
     public function index(Request $request)
     {
         $rides = Ride::query()
-            ->with(['user', 'bike', 'photos', 'participants'])
+            ->with(['user', 'bike.photos', 'photos', 'participants'])
             ->withCount(['likes', 'comments'])
             ->withExists(['likes as liked_by_me' => fn ($query) => $query->where('user_id', $request->user()->id)])
             ->when($request->filled('user_id'), function ($query) use ($request) {
@@ -57,7 +57,7 @@ class RideController extends Controller
             'speeding_events' => $speeding['events'],
         ]);
 
-        $ride->load(['user', 'bike', 'photos', 'participants']);
+        $ride->load(['user', 'bike.photos', 'photos', 'participants']);
 
         return new RideDetailResource($ride->loadCount(['likes', 'comments']));
     }
@@ -68,7 +68,7 @@ class RideController extends Controller
     public function show(Request $request, string $id)
     {
         $ride = Ride::query()
-            ->with(['user', 'bike', 'photos', 'participants', 'comments.user', 'likes'])
+            ->with(['user', 'bike.photos', 'photos', 'participants', 'comments.user', 'likes'])
             ->withCount(['likes', 'comments'])
             ->findOrFail($id);
 
