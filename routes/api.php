@@ -21,6 +21,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rides', [RideController::class, 'index']);
     Route::post('/rides', [RideController::class, 'store']);
     Route::get('/me/stats', [RideController::class, 'myStats']);
+    Route::get('/me/photos', [RidePhotoController::class, 'mine']);
     Route::get('/rides/{id}', [RideController::class, 'show']);
 
     Route::post('/rides/{ride}/photos', [RidePhotoController::class, 'store']);

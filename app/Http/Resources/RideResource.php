@@ -38,6 +38,8 @@ class RideResource extends JsonResource
             'photos' => $this->whenLoaded('photos', fn () => $this->photos->map(fn ($photo) => [
                 'id' => $photo->id,
                 'url' => $photo->url,
+                'lat' => $photo->lat,
+                'lng' => $photo->lng,
             ])),
             'likes_count' => (int) ($this->likes_count ?? 0),
             'comments_count' => (int) ($this->comments_count ?? 0),

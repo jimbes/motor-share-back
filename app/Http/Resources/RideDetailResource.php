@@ -39,6 +39,8 @@ class RideDetailResource extends JsonResource
             'photos' => $this->photos->map(fn ($photo) => [
                 'id' => $photo->id,
                 'url' => $photo->url,
+                'lat' => $photo->lat,
+                'lng' => $photo->lng,
             ]),
             'comments' => $this->comments->map(fn ($comment) => [
                 'id' => $comment->id,

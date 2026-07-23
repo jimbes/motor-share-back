@@ -43,6 +43,55 @@ class RideSocialTest extends TestCase
         $response->assertNotFound();
     }
 
+    public function test_a_photo_can_be_geotagged_with_where_it_was_taken(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $ride = Ride::factory()->for($user)->create();
+
+        $response = $this->actingAs($user)->postJson("/api/rides/{$ride->id}/photos", [
+            'photo' => UploadedFile::fake()->image('sunset.jpg'),
+            'lat' => 43.5012,
+            'lng' => 5.4021,
+        ]);
+
+        $response->assertCreated()->assertJson(['lat' => 43.5012, 'lng' => 5.4021]);
+        $this->assertDatabaseHas('ride_photos', ['ride_id' => $ride->id, 'lat' => 43.5012, 'lng' => 5.4021]);
+    }
+
+    public function test_a_photo_without_coordinates_is_still_accepted(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $ride = Ride::factory()->for($user)->create();
+
+        $response = $this->actingAs($user)->postJson("/api/rides/{$ride->id}/photos", [
+            'photo' => UploadedFile::fake()->image('sunset.jpg'),
+        ]);
+
+        $response->assertCreated()->assertJson(['lat' => null, 'lng' => null]);
+    }
+
+    public function test_my_photos_lists_only_the_authenticated_users_own_photos(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $myRide = Ride::factory()->for($user)->create(['title' => 'Coastal Loop']);
+        $otherRide = Ride::factory()->for($other)->create();
+
+        $myRide->photos()->create(['path' => 'ride-photos/mine.jpg', 'lat' => 43.5, 'lng' => 5.4]);
+        $otherRide->photos()->create(['path' => 'ride-photos/theirs.jpg']);
+
+        $response = $this->actingAs($user)->getJson('/api/me/photos');
+
+        $response->assertOk();
+        $photos = $response->json('data');
+        $this->assertCount(1, $photos);
+        $this->assertSame(43.5, $photos[0]['lat']);
+        $this->assertSame('Coastal Loop', $photos[0]['ride']['title']);
+    }
+
     public function test_a_user_can_like_a_ride(): void
     {
         $user = User::factory()->create();
