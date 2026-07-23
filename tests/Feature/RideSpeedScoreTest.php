@@ -97,6 +97,68 @@ class RideSpeedScoreTest extends TestCase
         $response->assertJson(['speed_score' => 100, 'speeding_events' => []]);
     }
 
+    public function test_a_road_with_no_explicit_maxspeed_falls_back_to_the_french_default_for_its_highway_type(): void
+    {
+        $geometry = [];
+        for ($i = 0; $i < 10; $i++) {
+            $geometry[] = ['lat' => 43.5 + $i * 0.0001, 'lon' => 5.4];
+        }
+
+        Http::fake([
+            'overpass-api.de/*' => Http::response([
+                'elements' => [
+                    [
+                        'type' => 'way',
+                        'id' => 1,
+                        // No maxspeed tag - typical for a small rural road in OSM.
+                        'tags' => ['highway' => 'unclassified'],
+                        'geometry' => $geometry,
+                    ],
+                ],
+            ]),
+        ]);
+        $user = User::factory()->create();
+
+        // Rides 100 km/h on a road whose French statutory default is 80 km/h.
+        $response = $this->actingAs($user)->postJson('/api/rides', $this->payload($this->trackAtSpeed(100)));
+
+        $response->assertCreated();
+        $score = $response->json('speed_score');
+        $events = $response->json('speeding_events');
+
+        $this->assertIsInt($score);
+        $this->assertLessThan(100, $score);
+        $this->assertCount(1, $events);
+        $this->assertEquals(80.0, $events[0]['limit_kmh']);
+    }
+
+    public function test_a_track_road_with_no_statutory_default_is_left_unscored(): void
+    {
+        $geometry = [];
+        for ($i = 0; $i < 10; $i++) {
+            $geometry[] = ['lat' => 43.5 + $i * 0.0001, 'lon' => 5.4];
+        }
+
+        Http::fake([
+            'overpass-api.de/*' => Http::response([
+                'elements' => [
+                    [
+                        'type' => 'way',
+                        'id' => 1,
+                        'tags' => ['highway' => 'track'],
+                        'geometry' => $geometry,
+                    ],
+                ],
+            ]),
+        ]);
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/rides', $this->payload($this->trackAtSpeed(80)));
+
+        $response->assertCreated();
+        $response->assertJson(['speed_score' => null, 'speeding_events' => []]);
+    }
+
     public function test_a_ride_with_no_matching_road_data_gets_no_score(): void
     {
         Http::fake([

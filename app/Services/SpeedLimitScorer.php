@@ -13,13 +13,40 @@ use Throwable;
  * (100 = never above the posted limit) plus the individual speeding
  * events that dragged the score down.
  *
- * Roads without a `maxspeed` tag (dirt tracks, forest trails, private
- * paths, ...) simply never contribute a limit, so a ride entirely off the
- * tagged road network naturally yields no score at all rather than a
- * false 100 or 0.
+ * Most minor French roads aren't explicitly tagged with `maxspeed` in
+ * OSM, but the limit is still public knowledge - it's whatever the Code
+ * de la Route sets by default for that road's category. So when a
+ * matched way has no explicit `maxspeed` tag, its `highway` type is used
+ * to look up the French statutory default (see DEFAULT_LIMITS_BY_HIGHWAY).
+ * Only road types with no sensible statutory default (tracks, paths,
+ * private service roads, ...) are left unscored.
  */
 class SpeedLimitScorer
 {
+    /**
+     * French statutory default speed limits (Code de la Route) by OSM
+     * `highway` value, used when a road has no explicit `maxspeed` tag.
+     * Rural defaults (80 km/h) apply since the 2018 reform; some
+     * départements have since posted 90 km/h on specific roads, which
+     * shows up as an explicit `maxspeed` tag and takes precedence over
+     * this table.
+     */
+    private const DEFAULT_LIMITS_BY_HIGHWAY = [
+        'motorway' => 130.0,
+        'motorway_link' => 110.0,
+        'trunk' => 110.0,
+        'trunk_link' => 90.0,
+        'primary' => 80.0,
+        'primary_link' => 80.0,
+        'secondary' => 80.0,
+        'secondary_link' => 80.0,
+        'tertiary' => 80.0,
+        'tertiary_link' => 80.0,
+        'unclassified' => 80.0,
+        'residential' => 50.0,
+        'living_street' => 20.0,
+    ];
+
     /**
      * Margin above the posted limit before a point counts as speeding, to
      * absorb GPS speed noise (matches typical radar/insurer tolerances).
@@ -112,7 +139,7 @@ class SpeedLimitScorer
         $east = max($lngs) + $buffer;
 
         $query = sprintf(
-            '[out:json][timeout:10];way["highway"]["maxspeed"](%F,%F,%F,%F);out geom;',
+            '[out:json][timeout:10];way["highway"](%F,%F,%F,%F);out geom;',
             $south,
             $west,
             $north,
@@ -136,7 +163,9 @@ class SpeedLimitScorer
         $ways = [];
 
         foreach ($response->json('elements', []) as $element) {
-            $limitKmh = $this->parseMaxspeedKmh($element['tags']['maxspeed'] ?? null);
+            $tags = $element['tags'] ?? [];
+            $limitKmh = $this->parseMaxspeedKmh($tags['maxspeed'] ?? null)
+                ?? self::DEFAULT_LIMITS_BY_HIGHWAY[$tags['highway'] ?? ''] ?? null;
             $geometry = $element['geometry'] ?? null;
 
             if ($limitKmh === null || ! is_array($geometry) || count($geometry) < 2) {
