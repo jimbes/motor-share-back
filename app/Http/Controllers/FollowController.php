@@ -24,6 +24,7 @@ class FollowController extends Controller
         return response()->json([
             'is_following' => true,
             'followers_count' => $target->followers()->count(),
+            'is_friends' => $user->isFriendsWith($target),
         ]);
     }
 
@@ -39,6 +40,7 @@ class FollowController extends Controller
         return response()->json([
             'is_following' => false,
             'followers_count' => $target->followers()->count(),
+            'is_friends' => false,
         ]);
     }
 }

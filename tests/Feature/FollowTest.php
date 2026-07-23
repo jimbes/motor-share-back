@@ -54,6 +54,29 @@ class FollowTest extends TestCase
         $this->assertDatabaseMissing('follows', ['follower_id' => $me->id, 'followed_id' => $rider->id]);
     }
 
+    public function test_following_back_completes_a_friendship(): void
+    {
+        $me = User::factory()->create();
+        $rider = User::factory()->create(['username' => 'sara_moto']);
+        $rider->following()->attach($me->id); // rider already follows me
+
+        $response = $this->actingAs($me)->postJson('/api/users/sara_moto/follow');
+
+        $response->assertOk()->assertJson(['is_friends' => true]);
+    }
+
+    public function test_unfollowing_breaks_the_friendship(): void
+    {
+        $me = User::factory()->create();
+        $rider = User::factory()->create(['username' => 'sara_moto']);
+        $me->following()->attach($rider->id);
+        $rider->following()->attach($me->id);
+
+        $response = $this->actingAs($me)->deleteJson('/api/users/sara_moto/follow');
+
+        $response->assertOk()->assertJson(['is_friends' => false]);
+    }
+
     public function test_the_public_profile_reflects_follow_state(): void
     {
         $me = User::factory()->create();
