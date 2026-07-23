@@ -52,6 +52,21 @@ class UserSearchTest extends TestCase
         $response->assertOk()->assertJsonCount(0);
     }
 
+    public function test_scope_friends_only_returns_mutual_follows(): void
+    {
+        $me = User::factory()->create(['username' => 'me_rider']);
+        $friend = User::factory()->create(['username' => 'marco_friend', 'name' => 'Marco Friend']);
+        $oneWay = User::factory()->create(['username' => 'marco_oneway', 'name' => 'Marco Oneway']);
+        $me->following()->attach($friend->id);
+        $friend->following()->attach($me->id);
+        $me->following()->attach($oneWay->id);
+
+        $response = $this->actingAs($me)->getJson('/api/users/search?q=marco&scope=friends');
+
+        $response->assertOk()->assertJsonCount(1);
+        $response->assertJsonFragment(['username' => 'marco_friend']);
+    }
+
     public function test_a_query_is_required(): void
     {
         $me = User::factory()->create();

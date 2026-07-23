@@ -11,7 +11,9 @@ class RideParticipantController extends Controller
 {
     /**
      * Tag another rider as having ridden along on this ride - only the
-     * ride's owner can do this.
+     * ride's owner can do this, and only for a mutual-follow friend, since
+     * tagging also grants that rider permanent access to view this ride
+     * (see Ride::isVisibleTo) regardless of any later unfollow.
      */
     public function store(Request $request, string $rideId)
     {
@@ -25,6 +27,10 @@ class RideParticipantController extends Controller
 
         if ($rider->id === $ride->user_id) {
             return response()->json(['message' => 'The ride owner is already on their own ride.'], 422);
+        }
+
+        if (! $request->user()->isFriendsWith($rider)) {
+            return response()->json(['message' => 'You can only tag friends who follow you back.'], 422);
         }
 
         $ride->participants()->syncWithoutDetaching([$rider->id]);

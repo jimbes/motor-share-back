@@ -11,10 +11,17 @@ class RideParticipantTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_the_ride_owner_can_tag_a_companion(): void
+    private function befriend(User $a, User $b): void
+    {
+        $a->following()->attach($b->id);
+        $b->following()->attach($a->id);
+    }
+
+    public function test_the_ride_owner_can_tag_a_friend_as_a_companion(): void
     {
         $owner = User::factory()->create();
         $companion = User::factory()->create(['username' => 'sara_moto']);
+        $this->befriend($owner, $companion);
         $ride = Ride::factory()->for($owner)->create();
 
         $response = $this->actingAs($owner)->postJson("/api/rides/{$ride->id}/participants", [
@@ -25,10 +32,25 @@ class RideParticipantTest extends TestCase
         $this->assertDatabaseHas('ride_participants', ['ride_id' => $ride->id, 'user_id' => $companion->id]);
     }
 
+    public function test_the_ride_owner_cannot_tag_a_rider_who_is_not_a_friend(): void
+    {
+        $owner = User::factory()->create();
+        User::factory()->create(['username' => 'sara_moto']);
+        $ride = Ride::factory()->for($owner)->create();
+
+        $response = $this->actingAs($owner)->postJson("/api/rides/{$ride->id}/participants", [
+            'username' => 'sara_moto',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseCount('ride_participants', 0);
+    }
+
     public function test_tagging_the_same_companion_twice_does_not_duplicate(): void
     {
         $owner = User::factory()->create();
         $companion = User::factory()->create(['username' => 'sara_moto']);
+        $this->befriend($owner, $companion);
         $ride = Ride::factory()->for($owner)->create();
 
         $this->actingAs($owner)->postJson("/api/rides/{$ride->id}/participants", ['username' => 'sara_moto']);
@@ -41,7 +63,8 @@ class RideParticipantTest extends TestCase
     {
         $owner = User::factory()->create();
         $other = User::factory()->create();
-        User::factory()->create(['username' => 'sara_moto']);
+        $companion = User::factory()->create(['username' => 'sara_moto']);
+        $this->befriend($owner, $companion);
         $ride = Ride::factory()->for($owner)->create();
 
         $response = $this->actingAs($other)->postJson("/api/rides/{$ride->id}/participants", [

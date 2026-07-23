@@ -12,6 +12,10 @@ class UserController extends Controller
      * Find riders by username or name (Strava-style rider search). Only
      * riders who've set a username are discoverable, since that's also
      * what their public profile URL is keyed on.
+     *
+     * ?scope=friends narrows results to the caller's mutual-follow friends
+     * - used by the ride-companion picker, since only friends can be
+     * tagged on a ride.
      */
     public function search(Request $request)
     {
@@ -22,6 +26,7 @@ class UserController extends Controller
         $users = User::query()
             ->whereNotNull('username')
             ->where('id', '!=', $request->user()->id)
+            ->when($request->query('scope') === 'friends', fn ($query) => $query->whereIn('id', $request->user()->friendIds()))
             ->where(fn ($query) => $query
                 ->where('username', 'like', '%'.$data['q'].'%')
                 ->orWhere('name', 'like', '%'.$data['q'].'%'))
