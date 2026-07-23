@@ -139,4 +139,69 @@ class BikeTest extends TestCase
 
         $response->assertNotFound();
     }
+
+    public function test_a_riders_first_bike_becomes_their_default(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/bikes', ['brand' => 'Ducati', 'model' => 'Monster']);
+
+        $response->assertCreated()->assertJson(['is_default' => true]);
+    }
+
+    public function test_a_second_bike_is_not_default_by_default(): void
+    {
+        $user = User::factory()->create();
+        Bike::factory()->for($user)->create(['is_default' => true]);
+
+        $response = $this->actingAs($user)->postJson('/api/bikes', ['brand' => 'Yamaha', 'model' => 'MT-07']);
+
+        $response->assertCreated()->assertJson(['is_default' => false]);
+    }
+
+    public function test_a_user_can_switch_their_default_bike(): void
+    {
+        $user = User::factory()->create();
+        $first = Bike::factory()->for($user)->create(['is_default' => true]);
+        $second = Bike::factory()->for($user)->create(['is_default' => false]);
+
+        $response = $this->actingAs($user)->postJson("/api/bikes/{$second->id}/default");
+
+        $response->assertOk()->assertJson(['is_default' => true]);
+        $this->assertFalse($first->fresh()->is_default);
+        $this->assertTrue($second->fresh()->is_default);
+    }
+
+    public function test_a_user_cannot_default_another_users_bike(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $bike = Bike::factory()->for($other)->create();
+
+        $response = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/default");
+
+        $response->assertNotFound();
+    }
+
+    public function test_deleting_the_default_bike_promotes_another(): void
+    {
+        $user = User::factory()->create();
+        $older = Bike::factory()->for($user)->create(['is_default' => true, 'created_at' => now()->subDay()]);
+        $newer = Bike::factory()->for($user)->create(['is_default' => false]);
+
+        $this->actingAs($user)->deleteJson("/api/bikes/{$older->id}");
+
+        $this->assertTrue($newer->fresh()->is_default);
+    }
+
+    public function test_deleting_the_only_bike_leaves_no_default(): void
+    {
+        $user = User::factory()->create();
+        $bike = Bike::factory()->for($user)->create(['is_default' => true]);
+
+        $response = $this->actingAs($user)->deleteJson("/api/bikes/{$bike->id}");
+
+        $response->assertNoContent();
+        $this->assertDatabaseMissing('bikes', ['id' => $bike->id]);
+    }
 }

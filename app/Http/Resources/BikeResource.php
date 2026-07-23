@@ -22,6 +22,7 @@ class BikeResource extends JsonResource
             'nickname' => $this->nickname,
             'engine_cc' => $this->engine_cc,
             'photo_url' => $this->photo_url,
+            'is_default' => (bool) $this->is_default,
             'created_at' => $this->created_at,
         ];
     }

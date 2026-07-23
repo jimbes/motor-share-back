@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('bikes', BikeController::class)->except(['show']);
     Route::get('/bikes/{id}', [BikeController::class, 'show']);
     Route::post('/bikes/{id}/photo', [BikeController::class, 'updatePhoto']);
+    Route::post('/bikes/{id}/default', [BikeController::class, 'setDefault']);
 
     Route::get('/rides', [RideController::class, 'index']);
     Route::post('/rides', [RideController::class, 'store']);

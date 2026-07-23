@@ -11,11 +11,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['brand', 'model', 'year', 'nickname', 'engine_cc', 'photo_path'])]
+#[Fillable(['brand', 'model', 'year', 'nickname', 'engine_cc', 'photo_path', 'is_default'])]
 class Bike extends Model
 {
     /** @use HasFactory<BikeFactory> */
     use HasFactory;
+
+    protected function casts(): array
+    {
+        return [
+            'is_default' => 'boolean',
+        ];
+    }
 
     public function user(): BelongsTo
     {
