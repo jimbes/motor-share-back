@@ -23,6 +23,7 @@ class RideResource extends JsonResource
             'distance_meters' => $this->distance_meters,
             'avg_speed_kmh' => $this->avg_speed_kmh,
             'max_speed_kmh' => $this->max_speed_kmh,
+            'speed_score' => $this->speed_score,
             'polyline' => $this->polyline_simplified,
             'user' => [
                 'id' => $this->user->id,

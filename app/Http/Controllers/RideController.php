@@ -7,6 +7,7 @@ use App\Http\Resources\RideDetailResource;
 use App\Http\Resources\RideResource;
 use App\Models\Ride;
 use App\Services\PolylineSimplifier;
+use App\Services\SpeedLimitScorer;
 use Illuminate\Http\Request;
 
 class RideController extends Controller
@@ -29,13 +30,16 @@ class RideController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreRideRequest $request, PolylineSimplifier $simplifier)
+    public function store(StoreRideRequest $request, PolylineSimplifier $simplifier, SpeedLimitScorer $scorer)
     {
         $data = $request->validated();
+        $speeding = $scorer->score($data['track']);
 
         $ride = $request->user()->rides()->create([
             ...$data,
             'polyline_simplified' => $simplifier->simplify($data['track']),
+            'speed_score' => $speeding['score'],
+            'speeding_events' => $speeding['events'],
         ]);
 
         $ride->load(['user', 'bike', 'photos']);

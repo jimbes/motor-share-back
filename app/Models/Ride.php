@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\RideFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,11 +12,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'bike_id', 'title', 'description', 'started_at',
     'duration_seconds', 'distance_meters', 'avg_speed_kmh', 'max_speed_kmh',
-    'track', 'polyline_simplified',
+    'track', 'polyline_simplified', 'speed_score', 'speeding_events',
 ])]
 class Ride extends Model
 {
-    /** @use HasFactory<\Database\Factories\RideFactory> */
+    /** @use HasFactory<RideFactory> */
     use HasFactory;
 
     protected function casts(): array
@@ -28,6 +29,8 @@ class Ride extends Model
             'max_speed_kmh' => 'decimal:2',
             'track' => 'array',
             'polyline_simplified' => 'array',
+            'speed_score' => 'integer',
+            'speeding_events' => 'array',
         ];
     }
 
