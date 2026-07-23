@@ -34,11 +34,14 @@ class UserController extends Controller
 
     /**
      * A rider's public profile: identity plus their all-time riding stats.
-     * Their individual rides are already public via GET /rides?user_id=.
+     * Individual rides are private and only shared via GET /rides?user_id=
+     * once both riders follow each other back (friends) - see
+     * Ride::isVisibleTo().
      */
     public function show(Request $request, string $username)
     {
         $user = User::where('username', $username)->firstOrFail();
+        $isSelf = $user->id === $request->user()->id;
 
         return response()->json([
             'id' => $user->id,
@@ -50,9 +53,8 @@ class UserController extends Controller
             'distance_meters' => (int) $user->rides()->sum('distance_meters'),
             'followers_count' => $user->followers()->count(),
             'following_count' => $user->following()->count(),
-            'is_following' => $user->id === $request->user()->id
-                ? false
-                : $request->user()->following()->where('users.id', $user->id)->exists(),
+            'is_following' => ! $isSelf && $request->user()->following()->where('users.id', $user->id)->exists(),
+            'is_friends' => ! $isSelf && $request->user()->isFriendsWith($user),
         ]);
     }
 }

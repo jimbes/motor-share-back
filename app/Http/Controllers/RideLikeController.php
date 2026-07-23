@@ -13,6 +13,7 @@ class RideLikeController extends Controller
     public function store(Request $request, string $rideId)
     {
         $ride = Ride::findOrFail($rideId);
+        abort_unless($ride->isVisibleTo($request->user()), 403, 'This ride is private.');
 
         $ride->likes()->firstOrCreate(['user_id' => $request->user()->id]);
 
@@ -28,6 +29,7 @@ class RideLikeController extends Controller
     public function destroy(Request $request, string $rideId)
     {
         $ride = Ride::findOrFail($rideId);
+        abort_unless($ride->isVisibleTo($request->user()), 403, 'This ride is private.');
 
         $ride->likes()->where('user_id', $request->user()->id)->delete();
 

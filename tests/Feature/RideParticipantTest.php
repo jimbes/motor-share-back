@@ -76,19 +76,35 @@ class RideParticipantTest extends TestCase
         $this->assertDatabaseMissing('ride_participants', ['ride_id' => $ride->id, 'user_id' => $companion->id]);
     }
 
-    public function test_a_tagged_companion_sees_the_ride_in_their_profile_feed(): void
+    public function test_a_tagged_companion_sees_the_ride_in_their_own_profile_feed(): void
     {
         $owner = User::factory()->create();
         $companion = User::factory()->create(['username' => 'sara_moto']);
-        $viewer = User::factory()->create();
         $ride = Ride::factory()->for($owner)->create();
         $ride->participants()->attach($companion->id);
 
-        $response = $this->actingAs($viewer)->getJson("/api/rides?user_id={$companion->id}");
+        // The companion isn't friends with the owner, but was tagged on the
+        // ride, so it's still visible to them - including in their own feed.
+        $response = $this->actingAs($companion)->getJson("/api/rides?user_id={$companion->id}");
 
         $response->assertOk();
         $ids = collect($response->json('data'))->pluck('id');
         $this->assertContains($ride->id, $ids);
+    }
+
+    public function test_a_stranger_does_not_see_a_ride_via_a_tagged_companions_profile(): void
+    {
+        $owner = User::factory()->create();
+        $companion = User::factory()->create(['username' => 'sara_moto']);
+        $stranger = User::factory()->create();
+        $ride = Ride::factory()->for($owner)->create();
+        $ride->participants()->attach($companion->id);
+
+        $response = $this->actingAs($stranger)->getJson("/api/rides?user_id={$companion->id}");
+
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id');
+        $this->assertNotContains($ride->id, $ids);
     }
 
     public function test_a_ride_detail_includes_its_participants(): void

@@ -95,7 +95,7 @@ class RideSocialTest extends TestCase
     public function test_a_user_can_like_a_ride(): void
     {
         $user = User::factory()->create();
-        $ride = Ride::factory()->create();
+        $ride = Ride::factory()->for($user)->create();
 
         $response = $this->actingAs($user)->postJson("/api/rides/{$ride->id}/like");
 
@@ -103,10 +103,34 @@ class RideSocialTest extends TestCase
         $this->assertDatabaseHas('ride_likes', ['ride_id' => $ride->id, 'user_id' => $user->id]);
     }
 
+    public function test_a_friend_can_like_a_ride(): void
+    {
+        $owner = User::factory()->create();
+        $friend = User::factory()->create();
+        $owner->following()->attach($friend->id);
+        $friend->following()->attach($owner->id);
+        $ride = Ride::factory()->for($owner)->create();
+
+        $response = $this->actingAs($friend)->postJson("/api/rides/{$ride->id}/like");
+
+        $response->assertOk()->assertJson(['likes_count' => 1, 'liked_by_me' => true]);
+    }
+
+    public function test_a_stranger_cannot_like_a_private_ride(): void
+    {
+        $owner = User::factory()->create();
+        $stranger = User::factory()->create();
+        $ride = Ride::factory()->for($owner)->create();
+
+        $response = $this->actingAs($stranger)->postJson("/api/rides/{$ride->id}/like");
+
+        $response->assertForbidden();
+    }
+
     public function test_liking_a_ride_twice_does_not_duplicate_the_like(): void
     {
         $user = User::factory()->create();
-        $ride = Ride::factory()->create();
+        $ride = Ride::factory()->for($user)->create();
 
         $this->actingAs($user)->postJson("/api/rides/{$ride->id}/like");
         $response = $this->actingAs($user)->postJson("/api/rides/{$ride->id}/like");
@@ -118,7 +142,7 @@ class RideSocialTest extends TestCase
     public function test_a_user_can_unlike_a_ride(): void
     {
         $user = User::factory()->create();
-        $ride = Ride::factory()->create();
+        $ride = Ride::factory()->for($user)->create();
         $ride->likes()->create(['user_id' => $user->id]);
 
         $response = $this->actingAs($user)->deleteJson("/api/rides/{$ride->id}/like");
@@ -130,7 +154,7 @@ class RideSocialTest extends TestCase
     public function test_a_user_can_comment_on_a_ride(): void
     {
         $user = User::factory()->create();
-        $ride = Ride::factory()->create();
+        $ride = Ride::factory()->for($user)->create();
 
         $response = $this->actingAs($user)->postJson("/api/rides/{$ride->id}/comments", [
             'body' => 'Great line through that last corner!',
@@ -140,10 +164,23 @@ class RideSocialTest extends TestCase
         $this->assertDatabaseHas('ride_comments', ['ride_id' => $ride->id, 'user_id' => $user->id]);
     }
 
+    public function test_a_stranger_cannot_comment_on_a_private_ride(): void
+    {
+        $owner = User::factory()->create();
+        $stranger = User::factory()->create();
+        $ride = Ride::factory()->for($owner)->create();
+
+        $response = $this->actingAs($stranger)->postJson("/api/rides/{$ride->id}/comments", [
+            'body' => 'Nice ride!',
+        ]);
+
+        $response->assertForbidden();
+    }
+
     public function test_comments_require_a_body(): void
     {
         $user = User::factory()->create();
-        $ride = Ride::factory()->create();
+        $ride = Ride::factory()->for($user)->create();
 
         $response = $this->actingAs($user)->postJson("/api/rides/{$ride->id}/comments", ['body' => '']);
 
@@ -153,7 +190,7 @@ class RideSocialTest extends TestCase
     public function test_a_user_can_delete_their_own_comment(): void
     {
         $user = User::factory()->create();
-        $ride = Ride::factory()->create();
+        $ride = Ride::factory()->for($user)->create();
         $comment = RideComment::factory()->for($ride)->for($user)->create();
 
         $response = $this->actingAs($user)->deleteJson("/api/comments/{$comment->id}");
@@ -166,7 +203,7 @@ class RideSocialTest extends TestCase
     {
         $user = User::factory()->create();
         $other = User::factory()->create();
-        $ride = Ride::factory()->create();
+        $ride = Ride::factory()->for($other)->create();
         $comment = RideComment::factory()->for($ride)->for($other)->create();
 
         $response = $this->actingAs($user)->deleteJson("/api/comments/{$comment->id}");

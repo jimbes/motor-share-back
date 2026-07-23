@@ -11,9 +11,10 @@ class RideCommentController extends Controller
     /**
      * List comments for a ride, oldest first.
      */
-    public function index(string $rideId)
+    public function index(Request $request, string $rideId)
     {
         $ride = Ride::findOrFail($rideId);
+        abort_unless($ride->isVisibleTo($request->user()), 403, 'This ride is private.');
 
         return $ride->comments()->with('user')->oldest()->get()->map(fn (RideComment $comment) => [
             'id' => $comment->id,
@@ -32,6 +33,7 @@ class RideCommentController extends Controller
     public function store(Request $request, string $rideId)
     {
         $ride = Ride::findOrFail($rideId);
+        abort_unless($ride->isVisibleTo($request->user()), 403, 'This ride is private.');
 
         $data = $request->validate([
             'body' => ['required', 'string', 'max:2000'],

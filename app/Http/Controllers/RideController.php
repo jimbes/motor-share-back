@@ -15,26 +15,39 @@ class RideController extends Controller
     /**
      * Display a listing of the resource (the feed, newest first).
      *
-     * - ?user_id= scopes it to one rider's rides (their public profile) -
+     * A ride is only ever returned if it's visible to the caller: their own
+     * ride, a mutual-follow friend's ride, or a ride they were tagged on as
+     * a companion - see Ride::isVisibleTo(). This base privacy filter
+     * always applies, then:
+     * - ?user_id= further scopes it to one rider's rides (their profile) -
      *   including rides they were only tagged on as a companion.
-     * - ?scope=following scopes it to the authenticated user's own rides
-     *   plus the rides of riders they follow (the default home feed).
+     * - ?scope=following further scopes it to the authenticated user's own
+     *   rides plus the rides of riders they follow (the default home feed).
      */
     public function index(Request $request)
     {
+        $authId = $request->user()->id;
+        $friendIds = $request->user()->friendIds();
+
         $rides = Ride::query()
             ->with(['user', 'bike.photos', 'photos', 'participants'])
             ->withCount(['likes', 'comments'])
-            ->withExists(['likes as liked_by_me' => fn ($query) => $query->where('user_id', $request->user()->id)])
+            ->withExists(['likes as liked_by_me' => fn ($query) => $query->where('user_id', $authId)])
+            ->where(fn ($q) => $q
+                ->where('user_id', $authId)
+                ->orWhereIn('user_id', $friendIds)
+                ->orWhereHas('participants', fn ($q2) => $q2->where('user_id', $authId)))
             ->when($request->filled('user_id'), function ($query) use ($request) {
                 $userId = $request->integer('user_id');
                 $query->where(fn ($q) => $q
                     ->where('user_id', $userId)
                     ->orWhereHas('participants', fn ($q2) => $q2->where('user_id', $userId)));
             })
-            ->when($request->query('scope') === 'following', function ($query) use ($request) {
+            ->when($request->query('scope') === 'following', function ($query) use ($request, $authId) {
                 $followedIds = $request->user()->following()->pluck('users.id');
-                $query->whereIn('user_id', [$request->user()->id, ...$followedIds]);
+                $query->where(fn ($q) => $q
+                    ->where('user_id', $authId)
+                    ->orWhereIn('user_id', $followedIds));
             })
             ->latest('started_at')
             ->paginate(10);
@@ -63,7 +76,8 @@ class RideController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Display the specified resource. Only visible to the ride's owner,
+     * tagged companions, and the owner's mutual-follow friends.
      */
     public function show(Request $request, string $id)
     {
@@ -71,6 +85,8 @@ class RideController extends Controller
             ->with(['user', 'bike.photos', 'photos', 'participants', 'comments.user', 'likes'])
             ->withCount(['likes', 'comments'])
             ->findOrFail($id);
+
+        abort_unless($ride->isVisibleTo($request->user()), 403, 'This ride is private.');
 
         return new RideDetailResource($ride);
     }

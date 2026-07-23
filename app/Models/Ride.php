@@ -68,4 +68,25 @@ class Ride extends Model
     {
         return $this->belongsToMany(User::class, 'ride_participants')->withTimestamps();
     }
+
+    /**
+     * A ride is only shared with its owner, riders tagged as companions,
+     * and the owner's mutual-follow friends - never with the wider public.
+     */
+    public function isVisibleTo(User $user): bool
+    {
+        if ($user->id === $this->user_id) {
+            return true;
+        }
+
+        if ($this->relationLoaded('participants')) {
+            if ($this->participants->contains('id', $user->id)) {
+                return true;
+            }
+        } elseif ($this->participants()->where('users.id', $user->id)->exists()) {
+            return true;
+        }
+
+        return $user->isFriendsWith($this->user);
+    }
 }

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -50,6 +51,28 @@ class User extends Authenticatable
     public function followers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'follows', 'followed_id', 'follower_id')->withTimestamps();
+    }
+
+    /**
+     * Friendship is mutual: each rider follows the other back. Rides are
+     * only shared with friends, not with one-way followers - so following
+     * someone doesn't unlock their rides until they follow back too.
+     */
+    public function isFriendsWith(User $other): bool
+    {
+        return $this->following()->where('users.id', $other->id)->exists()
+            && $this->followers()->where('users.id', $other->id)->exists();
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    public function friendIds(): Collection
+    {
+        $followingIds = $this->following()->pluck('users.id');
+        $followerIds = $this->followers()->pluck('users.id');
+
+        return $followingIds->intersect($followerIds)->values();
     }
 
     protected function avatarUrl(): Attribute

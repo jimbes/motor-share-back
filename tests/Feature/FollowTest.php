@@ -62,37 +62,59 @@ class FollowTest extends TestCase
 
         $response = $this->actingAs($me)->getJson('/api/users/sara_moto');
 
-        $response->assertOk()->assertJson(['is_following' => true, 'followers_count' => 1]);
+        $response->assertOk()->assertJson(['is_following' => true, 'followers_count' => 1, 'is_friends' => false]);
     }
 
-    public function test_the_following_feed_scope_includes_self_and_followed_riders(): void
+    public function test_the_public_profile_reflects_mutual_friend_state(): void
     {
         $me = User::factory()->create();
-        $followed = User::factory()->create();
+        $rider = User::factory()->create(['username' => 'sara_moto']);
+        $me->following()->attach($rider->id);
+        $rider->following()->attach($me->id);
+
+        $response = $this->actingAs($me)->getJson('/api/users/sara_moto');
+
+        $response->assertOk()->assertJson(['is_friends' => true]);
+    }
+
+    public function test_the_following_feed_scope_includes_self_and_mutual_friends(): void
+    {
+        $me = User::factory()->create();
+        $friend = User::factory()->create();
+        $oneWayFollowed = User::factory()->create();
         $stranger = User::factory()->create();
-        $me->following()->attach($followed->id);
+        $me->following()->attach($friend->id);
+        $friend->following()->attach($me->id); // follow-back makes them friends
+        $me->following()->attach($oneWayFollowed->id); // not followed back - not a friend
 
         $myRide = Ride::factory()->for($me)->create();
-        $followedRide = Ride::factory()->for($followed)->create();
+        $friendRide = Ride::factory()->for($friend)->create();
+        Ride::factory()->for($oneWayFollowed)->create();
         Ride::factory()->for($stranger)->create();
 
         $response = $this->actingAs($me)->getJson('/api/rides?scope=following');
 
         $response->assertOk();
         $ids = collect($response->json('data'))->pluck('id');
-        $this->assertEqualsCanonicalizing([$myRide->id, $followedRide->id], $ids->toArray());
+        $this->assertEqualsCanonicalizing([$myRide->id, $friendRide->id], $ids->toArray());
     }
 
-    public function test_the_default_feed_scope_still_shows_everyone(): void
+    public function test_the_default_feed_scope_only_shows_self_and_friends(): void
     {
         $me = User::factory()->create();
+        $friend = User::factory()->create();
         $stranger = User::factory()->create();
+        $me->following()->attach($friend->id);
+        $friend->following()->attach($me->id);
+
+        $friendRide = Ride::factory()->for($friend)->create();
         $strangerRide = Ride::factory()->for($stranger)->create();
 
         $response = $this->actingAs($me)->getJson('/api/rides');
 
         $response->assertOk();
         $ids = collect($response->json('data'))->pluck('id');
-        $this->assertContains($strangerRide->id, $ids);
+        $this->assertContains($friendRide->id, $ids);
+        $this->assertNotContains($strangerRide->id, $ids);
     }
 }
