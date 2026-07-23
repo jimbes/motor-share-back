@@ -40,6 +40,7 @@ class RideDetailResource extends JsonResource
                 'lat' => $photo->lat,
                 'lng' => $photo->lng,
             ]),
+            'participants' => UserSummaryResource::collection($this->participants),
             'comments' => $this->comments->map(fn ($comment) => [
                 'id' => $comment->id,
                 'body' => $comment->body,

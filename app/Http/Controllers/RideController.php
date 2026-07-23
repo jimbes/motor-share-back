@@ -13,16 +13,29 @@ use Illuminate\Http\Request;
 class RideController extends Controller
 {
     /**
-     * Display a listing of the resource (the feed, newest first). Pass
-     * ?user_id= to scope it to one rider's rides (their public profile).
+     * Display a listing of the resource (the feed, newest first).
+     *
+     * - ?user_id= scopes it to one rider's rides (their public profile) -
+     *   including rides they were only tagged on as a companion.
+     * - ?scope=following scopes it to the authenticated user's own rides
+     *   plus the rides of riders they follow (the default home feed).
      */
     public function index(Request $request)
     {
         $rides = Ride::query()
-            ->with(['user', 'bike', 'photos'])
+            ->with(['user', 'bike', 'photos', 'participants'])
             ->withCount(['likes', 'comments'])
             ->withExists(['likes as liked_by_me' => fn ($query) => $query->where('user_id', $request->user()->id)])
-            ->when($request->filled('user_id'), fn ($query) => $query->where('user_id', $request->integer('user_id')))
+            ->when($request->filled('user_id'), function ($query) use ($request) {
+                $userId = $request->integer('user_id');
+                $query->where(fn ($q) => $q
+                    ->where('user_id', $userId)
+                    ->orWhereHas('participants', fn ($q2) => $q2->where('user_id', $userId)));
+            })
+            ->when($request->query('scope') === 'following', function ($query) use ($request) {
+                $followedIds = $request->user()->following()->pluck('users.id');
+                $query->whereIn('user_id', [$request->user()->id, ...$followedIds]);
+            })
             ->latest('started_at')
             ->paginate(10);
 
@@ -44,7 +57,7 @@ class RideController extends Controller
             'speeding_events' => $speeding['events'],
         ]);
 
-        $ride->load(['user', 'bike', 'photos']);
+        $ride->load(['user', 'bike', 'photos', 'participants']);
 
         return new RideDetailResource($ride->loadCount(['likes', 'comments']));
     }
@@ -55,7 +68,7 @@ class RideController extends Controller
     public function show(Request $request, string $id)
     {
         $ride = Ride::query()
-            ->with(['user', 'bike', 'photos', 'comments.user', 'likes'])
+            ->with(['user', 'bike', 'photos', 'participants', 'comments.user', 'likes'])
             ->withCount(['likes', 'comments'])
             ->findOrFail($id);
 

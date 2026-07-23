@@ -2,10 +2,12 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BikeController;
+use App\Http\Controllers\FollowController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RideCommentController;
 use App\Http\Controllers\RideController;
 use App\Http\Controllers\RideLikeController;
+use App\Http\Controllers\RideParticipantController;
 use App\Http\Controllers\RidePhotoController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +41,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/rides/{ride}/comments', [RideCommentController::class, 'store']);
     Route::delete('/comments/{comment}', [RideCommentController::class, 'destroy']);
 
+    Route::post('/rides/{ride}/participants', [RideParticipantController::class, 'store']);
+    Route::delete('/rides/{ride}/participants/{user}', [RideParticipantController::class, 'destroy']);
+
     Route::get('/users/search', [UserController::class, 'search']);
+    Route::post('/users/{username}/follow', [FollowController::class, 'store']);
+    Route::delete('/users/{username}/follow', [FollowController::class, 'destroy']);
     Route::get('/users/{username}', [UserController::class, 'show']);
 });

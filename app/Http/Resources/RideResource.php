@@ -39,6 +39,7 @@ class RideResource extends JsonResource
                 'lat' => $photo->lat,
                 'lng' => $photo->lng,
             ])),
+            'participants' => $this->whenLoaded('participants', fn () => UserSummaryResource::collection($this->participants)),
             'likes_count' => (int) ($this->likes_count ?? 0),
             'comments_count' => (int) ($this->comments_count ?? 0),
             'liked_by_me' => (bool) ($this->liked_by_me ?? false),

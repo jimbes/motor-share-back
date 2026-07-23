@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
@@ -57,5 +58,14 @@ class Ride extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(RideComment::class);
+    }
+
+    /**
+     * Other riders tagged as having ridden along on this ride (Strava-style
+     * "with" companions) - the ride is still owned/recorded by [user].
+     */
+    public function participants(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'ride_participants')->withTimestamps();
     }
 }

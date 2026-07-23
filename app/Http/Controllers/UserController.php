@@ -36,7 +36,7 @@ class UserController extends Controller
      * A rider's public profile: identity plus their all-time riding stats.
      * Their individual rides are already public via GET /rides?user_id=.
      */
-    public function show(string $username)
+    public function show(Request $request, string $username)
     {
         $user = User::where('username', $username)->firstOrFail();
 
@@ -48,6 +48,11 @@ class UserController extends Controller
             'member_since' => $user->created_at,
             'rides_count' => $user->rides()->count(),
             'distance_meters' => (int) $user->rides()->sum('distance_meters'),
+            'followers_count' => $user->followers()->count(),
+            'following_count' => $user->following()->count(),
+            'is_following' => $user->id === $request->user()->id
+                ? false
+                : $request->user()->following()->where('users.id', $user->id)->exists(),
         ]);
     }
 }
