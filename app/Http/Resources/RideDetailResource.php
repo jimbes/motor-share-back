@@ -26,15 +26,13 @@ class RideDetailResource extends JsonResource
             'speed_score' => $this->speed_score,
             'speeding_events' => $this->speeding_events,
             'track' => $this->track,
-            'user' => [
-                'id' => $this->user->id,
-                'name' => $this->user->name,
-            ],
+            'user' => new UserSummaryResource($this->user),
             'bike' => $this->bike ? [
                 'id' => $this->bike->id,
                 'brand' => $this->bike->brand,
                 'model' => $this->bike->model,
                 'nickname' => $this->bike->nickname,
+                'photo_url' => $this->bike->photo_url,
             ] : null,
             'photos' => $this->photos->map(fn ($photo) => [
                 'id' => $photo->id,
@@ -46,10 +44,7 @@ class RideDetailResource extends JsonResource
                 'id' => $comment->id,
                 'body' => $comment->body,
                 'created_at' => $comment->created_at,
-                'user' => [
-                    'id' => $comment->user->id,
-                    'name' => $comment->user->name,
-                ],
+                'user' => new UserSummaryResource($comment->user),
             ]),
             'likes_count' => (int) ($this->likes_count ?? $this->likes->count()),
             'comments_count' => (int) ($this->comments_count ?? $this->comments->count()),

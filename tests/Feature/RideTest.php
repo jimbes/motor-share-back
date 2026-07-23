@@ -102,6 +102,20 @@ class RideTest extends TestCase
         $this->assertEquals([$newer->id, $older->id], $ids->toArray());
     }
 
+    public function test_the_feed_can_be_scoped_to_one_riders_rides(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $mine = Ride::factory()->for($user)->create();
+        Ride::factory()->for($other)->create();
+
+        $response = $this->actingAs($user)->getJson("/api/rides?user_id={$user->id}");
+
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id');
+        $this->assertEquals([$mine->id], $ids->toArray());
+    }
+
     public function test_the_feed_omits_the_full_track_but_includes_a_polyline(): void
     {
         $user = User::factory()->create();

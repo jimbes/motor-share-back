@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreBikeRequest;
 use App\Http\Resources\BikeResource;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class BikeController extends Controller
 {
@@ -58,5 +59,28 @@ class BikeController extends Controller
         $bike->delete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Replace a bike's photo, deleting the previous one if there was one.
+     */
+    public function updatePhoto(Request $request, string $id)
+    {
+        $bike = $request->user()->bikes()->findOrFail($id);
+
+        $request->validate([
+            'photo' => ['required', 'image', 'max:10240'],
+        ]);
+
+        $oldPath = $bike->photo_path;
+
+        $path = $request->file('photo')->store('bike-photos', 'public');
+        $bike->update(['photo_path' => $path]);
+
+        if ($oldPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return new BikeResource($bike);
     }
 }

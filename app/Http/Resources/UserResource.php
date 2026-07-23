@@ -5,7 +5,11 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class BikeResource extends JsonResource
+/**
+ * The full shape of the authenticated user's own account - includes the
+ * email, which is never exposed on other users' profiles.
+ */
+class UserResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -16,12 +20,10 @@ class BikeResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'brand' => $this->brand,
-            'model' => $this->model,
-            'year' => $this->year,
-            'nickname' => $this->nickname,
-            'engine_cc' => $this->engine_cc,
-            'photo_url' => $this->photo_url,
+            'name' => $this->name,
+            'username' => $this->username,
+            'email' => $this->email,
+            'avatar_url' => $this->avatar_url,
             'created_at' => $this->created_at,
         ];
     }

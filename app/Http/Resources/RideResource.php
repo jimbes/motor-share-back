@@ -25,15 +25,13 @@ class RideResource extends JsonResource
             'max_speed_kmh' => $this->max_speed_kmh,
             'speed_score' => $this->speed_score,
             'polyline' => $this->polyline_simplified,
-            'user' => [
-                'id' => $this->user->id,
-                'name' => $this->user->name,
-            ],
+            'user' => new UserSummaryResource($this->user),
             'bike' => $this->whenLoaded('bike', fn () => $this->bike ? [
                 'id' => $this->bike->id,
                 'brand' => $this->bike->brand,
                 'model' => $this->bike->model,
                 'nickname' => $this->bike->nickname,
+                'photo_url' => $this->bike->photo_url,
             ] : null),
             'photos' => $this->whenLoaded('photos', fn () => $this->photos->map(fn ($photo) => [
                 'id' => $photo->id,

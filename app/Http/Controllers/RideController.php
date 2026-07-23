@@ -13,7 +13,8 @@ use Illuminate\Http\Request;
 class RideController extends Controller
 {
     /**
-     * Display a listing of the resource (the feed, newest first).
+     * Display a listing of the resource (the feed, newest first). Pass
+     * ?user_id= to scope it to one rider's rides (their public profile).
      */
     public function index(Request $request)
     {
@@ -21,6 +22,7 @@ class RideController extends Controller
             ->with(['user', 'bike', 'photos'])
             ->withCount(['likes', 'comments'])
             ->withExists(['likes as liked_by_me' => fn ($query) => $query->where('user_id', $request->user()->id)])
+            ->when($request->filled('user_id'), fn ($query) => $query->where('user_id', $request->integer('user_id')))
             ->latest('started_at')
             ->paginate(10);
 

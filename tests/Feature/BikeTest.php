@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Bike;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class BikeTest extends TestCase
@@ -88,5 +90,53 @@ class BikeTest extends TestCase
 
         $response->assertNotFound();
         $this->assertDatabaseHas('bikes', ['id' => $bike->id]);
+    }
+
+    public function test_a_user_can_attach_a_photo_to_their_own_bike(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $bike = Bike::factory()->for($user)->create();
+
+        $response = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photo", [
+            'photo' => UploadedFile::fake()->image('bike.jpg'),
+        ]);
+
+        $response->assertOk();
+        $this->assertNotNull($response->json('photo_url'));
+        Storage::disk('public')->assertExists($bike->fresh()->photo_path);
+    }
+
+    public function test_replacing_a_bike_photo_deletes_the_old_one(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $bike = Bike::factory()->for($user)->create();
+
+        $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photo", [
+            'photo' => UploadedFile::fake()->image('first.jpg'),
+        ]);
+        $firstPath = $bike->fresh()->photo_path;
+
+        $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photo", [
+            'photo' => UploadedFile::fake()->image('second.jpg'),
+        ]);
+
+        Storage::disk('public')->assertMissing($firstPath);
+        Storage::disk('public')->assertExists($bike->fresh()->photo_path);
+    }
+
+    public function test_a_user_cannot_attach_a_photo_to_another_users_bike(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $bike = Bike::factory()->for($other)->create();
+
+        $response = $this->actingAs($user)->postJson("/api/bikes/{$bike->id}/photo", [
+            'photo' => UploadedFile::fake()->image('bike.jpg'),
+        ]);
+
+        $response->assertNotFound();
     }
 }

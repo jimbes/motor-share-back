@@ -5,7 +5,11 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class BikeResource extends JsonResource
+/**
+ * Public-safe user info - no email. Used for search results and embedded
+ * author info on rides/comments.
+ */
+class UserSummaryResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -16,13 +20,9 @@ class BikeResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'brand' => $this->brand,
-            'model' => $this->model,
-            'year' => $this->year,
-            'nickname' => $this->nickname,
-            'engine_cc' => $this->engine_cc,
-            'photo_url' => $this->photo_url,
-            'created_at' => $this->created_at,
+            'name' => $this->name,
+            'username' => $this->username,
+            'avatar_url' => $this->avatar_url,
         ];
     }
 }
