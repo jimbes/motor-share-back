@@ -13,6 +13,9 @@ composer install --no-dev --optimize-autoloader
 echo "Running migrations..."
 php artisan migrate --force
 
+echo "Ensuring storage symlink exists..."
+php artisan storage:link
+
 echo "Rebuilding caches..."
 php artisan config:cache
 php artisan route:cache
